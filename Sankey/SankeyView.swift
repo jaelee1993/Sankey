@@ -48,13 +48,17 @@ class SnakeyItemView:UIView {
 
 class SankeyView: UIScrollView {
     var contentView:UIView!
-    var pixelPerItem:CGFloat = 4
-    let spacing:CGFloat = 10
+    var pixelPerItem:       CGFloat = 4
+    let spacing:            CGFloat = 20
     
     var sankeyItems:[String:[SankeyItem]] = [
         "seller 1":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
         "seller 2":  [SankeyItem(name: "buyer A", volume: 1),SankeyItem(name: "buyer B", volume: 3),SankeyItem(name: "buyer C", volume: 5)],
         "seller 3":  [SankeyItem(name: "buyer A", volume: 3)],
+        "seller 4":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
+        "seller 5":  [SankeyItem(name: "buyer A", volume: 1),SankeyItem(name: "buyer B", volume: 3),SankeyItem(name: "buyer C", volume: 5),SankeyItem(name: "buyer D", volume: 3),SankeyItem(name: "buyer E", volume: 5),SankeyItem(name: "buyer F", volume: 1),SankeyItem(name: "buyer G", volume: 3),SankeyItem(name: "buyer H", volume: 22),SankeyItem(name: "buyer I", volume: 3),SankeyItem(name: "buyer J", volume: 12),SankeyItem(name: "buyer K", volume: 1),SankeyItem(name: "buyer L", volume: 12)],
+//        "seller 11":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
+        
     ]
     
     var sellerTotals:                   [String:Int] = [:]
@@ -107,6 +111,7 @@ class SankeyView: UIScrollView {
             
         }
     }
+    
     func drawLeft() {
         var i = 0
         let totals = sellerTotals
@@ -128,16 +133,26 @@ class SankeyView: UIScrollView {
                     view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
                 ])
             }
-                // last cell
+            // last cell
             else if i == (totals.count - 1) {
                 let priorView = leftViews[i - 1]
-                NSLayoutConstraint.activate([
-                    view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
-                    view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
-                    view.widthAnchor.constraint(equalToConstant: 100),
-                    view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
-                    view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
-                ])
+                if sellerTotals.count > buyerTotals.count {
+                    NSLayoutConstraint.activate([
+                        view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
+                        view.widthAnchor.constraint(equalToConstant: 100),
+                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
+                        view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+                    ])
+                } else {
+                    NSLayoutConstraint.activate([
+                        view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
+                        view.widthAnchor.constraint(equalToConstant: 100),
+                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
+                    ])
+                    
+                }
             }
                 // first cell
             else {
@@ -169,7 +184,7 @@ class SankeyView: UIScrollView {
             
             
             // not first and not last cell
-            if i != 0  {
+            if i != 0 && i != (totals.count - 1) {
                 let priorView = rightViews[i - 1]
                 NSLayoutConstraint.activate([
                     view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
@@ -178,7 +193,28 @@ class SankeyView: UIScrollView {
                     view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
                 ])
             }
-                // first cell
+            // last cell
+            else if i == (totals.count - 1) {
+                let priorView = rightViews[i - 1]
+                if buyerTotals.count >= sellerTotals.count {
+                    NSLayoutConstraint.activate([
+                        view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
+                        view.widthAnchor.constraint(equalToConstant: 100),
+                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
+                        view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+                    ])
+                } else {
+                    NSLayoutConstraint.activate([
+                        view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
+                        view.widthAnchor.constraint(equalToConstant: 100),
+                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
+                    ])
+                }
+            }
+                
+            // first cell
             else {
                 NSLayoutConstraint.activate([
                     view.topAnchor.constraint(equalTo: topAnchor, constant: spacing),
@@ -226,13 +262,12 @@ class SankeyView: UIScrollView {
 
     func drawLine(start:CGPoint, end:CGPoint, lineWidth:CGFloat) {
         let linePath = UIBezierPath()
-        let xDisplacement = end.x - start.x
         
         let newStart = CGPoint(x: start.x, y: start.y + lineWidth/2)
         let newEnd = CGPoint(x: end.x, y: end.y + lineWidth/2)
         
         linePath.move(to: newStart)
-        linePath.addCurve(to: newEnd, controlPoint1: CGPoint(x: xDisplacement, y: newStart.y), controlPoint2: CGPoint(x: xDisplacement, y: newEnd.y))
+        linePath.addCurve(to: newEnd, controlPoint1: CGPoint(x: newEnd.x, y: newStart.y), controlPoint2: CGPoint(x: newStart.x, y: newEnd.y))
         
         
         
@@ -244,13 +279,6 @@ class SankeyView: UIScrollView {
         
         lineLayer.name = "line"
         layer.addSublayer(lineLayer)
-        
-        
-        
-        
-        
-        
-  
     }
     
     
@@ -290,4 +318,29 @@ extension UIColor {
                        blue:  .random(),
                        alpha: 1.0)
     }
+}
+
+
+
+
+
+
+
+extension Int {
+    var pixelPerItem: CGFloat {
+        switch self {
+        case 0...50:
+            return 0.5
+        case 51...100:
+            return 0.4
+        case 100...200:
+            return 0.2
+        case let x where x > 200:
+            return 0.1
+        default:
+            return 6
+        }
+    }
+    
+
 }

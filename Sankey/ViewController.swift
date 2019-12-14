@@ -7,13 +7,7 @@
 //
 
 import UIKit
-struct Buyer {
-    var name:String
-}
 
-struct Seller {
-    var name:String
-}
 
 class ViewController: UIViewController {
     
