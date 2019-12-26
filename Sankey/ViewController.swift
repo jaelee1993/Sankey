@@ -12,8 +12,18 @@ import UIKit
 class ViewController: UIViewController {
     
     
-    var scrollView:SankeyView!
+    var sankeyView:SankeyView!
     var contentView:UIView!
+    
+    var sankeyItems:[String:[SankeyItem]] = [
+        "seller 1":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
+        "seller 2":  [SankeyItem(name: "buyer A", volume: 1),SankeyItem(name: "buyer B", volume: 3),SankeyItem(name: "buyer C", volume: 5)],
+        "seller 3":  [SankeyItem(name: "buyer A", volume: 3)],
+        "seller 4":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
+        "seller 5":  [SankeyItem(name: "buyer A", volume: 1),SankeyItem(name: "buyer B", volume: 3),SankeyItem(name: "buyer C", volume: 5),SankeyItem(name: "buyer D", volume: 3),SankeyItem(name: "buyer E", volume: 5),SankeyItem(name: "buyer F", volume: 1),SankeyItem(name: "buyer G", volume: 3),SankeyItem(name: "buyer H", volume: 10)],
+    ]
+    
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,21 +35,22 @@ class ViewController: UIViewController {
     
     fileprivate func setup() {
         setupScrollView()
+        sankeyView.drawSankey()
     }
     
     fileprivate func setupScrollView() {
-        scrollView = SankeyView()
-        scrollView.backgroundColor = .clear
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(scrollView)
+        sankeyView = SankeyView()
+        sankeyView.backgroundColor = .clear
+        sankeyView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(sankeyView)
         
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            scrollView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            scrollView.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            sankeyView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            sankeyView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            sankeyView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            sankeyView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            sankeyView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            sankeyView.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
         
     }

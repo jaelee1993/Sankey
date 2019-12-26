@@ -7,7 +7,21 @@
 //
 
 import UIKit
-
+protocol SankeyDelegate {
+    func lineIsHit<T:SankeyLineShapeLayer>(sankeyLineShapeLayer:T)
+}
+class SankeyLineShapeLayer: CAShapeLayer {
+    var startTag:String?
+    var endTag:String?
+    func setLineStartEndTags(_ startTag:String?, _ endTag:String?) {
+        self.startTag = startTag
+        self.endTag = endTag
+    }
+}
+enum SankeyType {
+    case lineCenter
+    case lineStacked
+}
 struct SankeyItem {
     var name:String
     var volume:Int
@@ -47,43 +61,65 @@ class SnakeyItemView:UIView {
 }
 
 class SankeyView: UIScrollView {
-    var contentView:UIView!
-    var pixelPerItem:       CGFloat = 4
-    let spacing:            CGFloat = 20
+    private var contentView:UIView!
+    
+    public var padding:            CGFloat = 5
+    public var pixelPerItem:       CGFloat = 4
+    public var spacing:            CGFloat = 20
+    public var itemHeight:         CGFloat = 60
+    public var itemWidth:          CGFloat = 80
+    public var leftItemColor:      UIColor = .red
+    public var rightItemColor:     UIColor = .blue
     
     var sankeyItems:[String:[SankeyItem]] = [
-        "seller 1":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
-        "seller 2":  [SankeyItem(name: "buyer A", volume: 1),SankeyItem(name: "buyer B", volume: 3),SankeyItem(name: "buyer C", volume: 5)],
+        "seller 1":  [SankeyItem(name: "buyer A", volume: 5)],
+        "seller 2":  [SankeyItem(name: "buyer A", volume: 1)],
         "seller 3":  [SankeyItem(name: "buyer A", volume: 3)],
         "seller 4":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
-        "seller 5":  [SankeyItem(name: "buyer A", volume: 1),SankeyItem(name: "buyer B", volume: 3),SankeyItem(name: "buyer C", volume: 5),SankeyItem(name: "buyer D", volume: 3),SankeyItem(name: "buyer E", volume: 5),SankeyItem(name: "buyer F", volume: 1),SankeyItem(name: "buyer G", volume: 3),SankeyItem(name: "buyer H", volume: 22),SankeyItem(name: "buyer I", volume: 3),SankeyItem(name: "buyer J", volume: 12),SankeyItem(name: "buyer K", volume: 1),SankeyItem(name: "buyer L", volume: 12)],
-//        "seller 11":  [SankeyItem(name: "buyer A", volume: 5),SankeyItem(name: "buyer B", volume: 10),SankeyItem(name: "buyer C", volume: 15)],
-        
+//        "seller 5":  [SankeyItem(name: "buyer A", volume: 1),SankeyItem(name: "buyer B", volume: 3),SankeyItem(name: "buyer C", volume: 5),SankeyItem(name: "buyer D", volume: 3),SankeyItem(name: "buyer E", volume: 5),SankeyItem(name: "buyer F", volume: 1),SankeyItem(name: "buyer G", volume: 3),SankeyItem(name: "buyer H", volume: 10)],
+//
     ]
     
-    var sellerTotals:                   [String:Int] = [:]
-    var buyerTotals:                    [String:Int] = [:]
+    var leftTotals:                     [String:Int] = [:]
+    var rightTotals:                    [String:Int] = [:]
     
-    var sellerItemNewLineDrawPoint:     [String:CGFloat] = [:]
-    var buyerItemNewLineDrawPoint:      [String:CGFloat] = [:]
+    var leftItemNewLineDrawPoint:       [String:CGFloat] = [:]
+    var rightItemNewLineDrawPoint:      [String:CGFloat] = [:]
     
     var leftViews:                      [SnakeyItemView] = []
     var rightViews:                     [SnakeyItemView] = []
+    
+    //rules
+    var sankeyType:SankeyType = .lineStacked
    
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupContentView()
     }
     
+    public init(frame: CGRect, type:SankeyType) {
+        super.init(frame: frame)
+        self.sankeyType = type
+        setupContentView()
+    }
+    
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-       
        
        
     override func draw(_ rect: CGRect) {
         super.draw(rect)
+    }
+    
+    public func drawSankey() {
+        analyzeSankeyItems()
+        drawLeft()
+        drawRight()
+        drawSankeyLines()
+    }
+    
+    public func drawSankey(_ sankeyItems:[SankeyItem]) {
         analyzeSankeyItems()
         drawLeft()
         drawRight()
@@ -98,23 +134,23 @@ class SankeyView: UIScrollView {
             
             value.forEach {
                 count += $0.volume
-                if buyerTotals[$0.name] == nil {
-                    buyerTotals[$0.name] =  0 + $0.volume
+                if rightTotals[$0.name] == nil {
+                    rightTotals[$0.name] =  0 + $0.volume
                 } else {
-                    buyerTotals[$0.name] =  buyerTotals[$0.name]! + $0.volume
+                    rightTotals[$0.name] =  rightTotals[$0.name]! + $0.volume
                 }
-                buyerItemNewLineDrawPoint[$0.name] = 0
+                rightItemNewLineDrawPoint[$0.name] = 0
             }
             
-            sellerItemNewLineDrawPoint[key] = 0
-            sellerTotals[key] = count
+            leftItemNewLineDrawPoint[key] = 0
+            leftTotals[key] = count
             
         }
     }
     
     func drawLeft() {
         var i = 0
-        let totals = sellerTotals
+        let totals = leftTotals
         for (key,value) in totals {
             let view = SnakeyItemView()
             view.backgroundColor = UIColor.blue.withAlphaComponent(0.9)
@@ -122,47 +158,74 @@ class SankeyView: UIScrollView {
             view.setTitle(key)
             contentView.addSubview(view)
             
-            
-            // not first and not last cell
-            if i != 0 && i != (totals.count - 1) {
-                let priorView = leftViews[i - 1]
-                NSLayoutConstraint.activate([
-                    view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
-                    view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
-                    view.widthAnchor.constraint(equalToConstant: 100),
-                    view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
-                ])
-            }
-            // last cell
-            else if i == (totals.count - 1) {
-                let priorView = leftViews[i - 1]
-                if sellerTotals.count > buyerTotals.count {
+            switch sankeyType {
+            case .lineCenter:
+                print("")
+            case .lineStacked:
+                // not first and not last cell
+                if i != 0 && i != (totals.count - 1) {
+                    let priorView = leftViews[i - 1]
                     NSLayoutConstraint.activate([
                         view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
-                        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
-                        view.widthAnchor.constraint(equalToConstant: 100),
-                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
-                        view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
-                    ])
-                } else {
-                    NSLayoutConstraint.activate([
-                        view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
-                        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
+                        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
                         view.widthAnchor.constraint(equalToConstant: 100),
                         view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
                     ])
+                }
+                    // last cell
+                else if i == (totals.count - 1) && i != 0 {
+                    let priorView = leftViews[i - 1]
+                    if leftTotals.count > rightTotals.count {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                            view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
+                            view.widthAnchor.constraint(equalToConstant: 100),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
+                            view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+                        ])
+                    } else {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                            view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
+                            view.widthAnchor.constraint(equalToConstant: 100),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
+                        ])
+                        
+                    }
+                }
+                // last cell && first cell
+                else if i == (totals.count - 1) && i == 0 {
+                    if leftTotals.count > rightTotals.count {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: topAnchor, constant: 0),
+                            view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
+                            view.widthAnchor.constraint(equalToConstant: itemWidth),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
+                            view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+                        ])
+                    } else {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: topAnchor, constant: 0),
+                            view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
+                            view.widthAnchor.constraint(equalToConstant: itemWidth),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
+                        ])
+                    }
+                }
                     
+                    
+                    
+                    // first cell
+                else {
+                    NSLayoutConstraint.activate([
+                        view.topAnchor.constraint(equalTo: topAnchor, constant: spacing),
+                        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
+                        view.widthAnchor.constraint(equalToConstant: 100),
+                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
+                    ])
                 }
             }
-                // first cell
-            else {
-                NSLayoutConstraint.activate([
-                    view.topAnchor.constraint(equalTo: topAnchor, constant: spacing),
-                    view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
-                    view.widthAnchor.constraint(equalToConstant: 100),
-                    view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
-                ])
-            }
+            
             contentView.layoutIfNeeded()
             leftViews.append(view)
             i += 1
@@ -174,55 +237,82 @@ class SankeyView: UIScrollView {
     
     func drawRight() {
         var i = 0
-        let totals = buyerTotals
+        let totals = rightTotals
         for (key,value) in totals {
             let view = SnakeyItemView()
             view.backgroundColor = UIColor.systemPink.withAlphaComponent(0.9)
             view.translatesAutoresizingMaskIntoConstraints = false
             view.setTitle(key)
             contentView.addSubview(view)
-            
-            
-            // not first and not last cell
-            if i != 0 && i != (totals.count - 1) {
-                let priorView = rightViews[i - 1]
-                NSLayoutConstraint.activate([
-                    view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
-                    view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
-                    view.widthAnchor.constraint(equalToConstant: 100),
-                    view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
-                ])
-            }
-            // last cell
-            else if i == (totals.count - 1) {
-                let priorView = rightViews[i - 1]
-                if buyerTotals.count >= sellerTotals.count {
+            switch sankeyType {
+            case .lineCenter:
+                print("")
+            case .lineStacked:
+                // not first and not last cell
+                if i != 0 && i != (totals.count - 1) {
+                    let priorView = rightViews[i - 1]
                     NSLayoutConstraint.activate([
                         view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
-                        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
+                        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -padding),
                         view.widthAnchor.constraint(equalToConstant: 100),
-                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
-                        view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+                        view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
                     ])
-                } else {
+                }
+                // last cell
+                else if i == (totals.count - 1) && i != 0  {
+                    let priorView = rightViews[i - 1]
+                    if rightTotals.count >= leftTotals.count {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                            view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -padding),
+                            view.widthAnchor.constraint(equalToConstant: 100),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
+                            view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+                        ])
+                    } else {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
+                            view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -padding),
+                            view.widthAnchor.constraint(equalToConstant: 100),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
+                        ])
+                    }
+                }
+                
+                // last cell && first cell
+                else if i == (totals.count - 1) && i == 0 {
+                    if rightTotals.count >= leftTotals.count {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: topAnchor, constant: 0),
+                            view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: -padding),
+                            view.widthAnchor.constraint(equalToConstant: itemWidth),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem),
+                            view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+                        ])
+                        
+                    } else {
+                        NSLayoutConstraint.activate([
+                            view.topAnchor.constraint(equalTo: topAnchor, constant: 0),
+                            view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -padding),
+                            view.widthAnchor.constraint(equalToConstant: itemWidth),
+                            view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
+                        ])
+                        
+                    }
+                    
+                }
+                    
+                // first cell
+                else {
                     NSLayoutConstraint.activate([
-                        view.topAnchor.constraint(equalTo: priorView.bottomAnchor, constant: spacing),
-                        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
+                        view.topAnchor.constraint(equalTo: topAnchor, constant: spacing),
+                        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -padding),
                         view.widthAnchor.constraint(equalToConstant: 100),
                         view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
                     ])
                 }
             }
-                
-            // first cell
-            else {
-                NSLayoutConstraint.activate([
-                    view.topAnchor.constraint(equalTo: topAnchor, constant: spacing),
-                    view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
-                    view.widthAnchor.constraint(equalToConstant: 100),
-                    view.heightAnchor.constraint(equalToConstant: CGFloat(value) * pixelPerItem)
-                ])
-            }
+            
             contentView.layoutIfNeeded()
             rightViews.append(view)
             i += 1
@@ -230,30 +320,29 @@ class SankeyView: UIScrollView {
         }
     }
     
+    //MARK: - Sankey Lines
     fileprivate func drawSankeyLines() {
-        var leftItemNewLineDrawPoint = sellerItemNewLineDrawPoint
-        var rightItemNewLineDrawPoint = buyerItemNewLineDrawPoint
         
         for (key,values) in sankeyItems {
             // left point
-            guard let viewForKey = (leftViews.filter { $0.titleTag == key}).first else {continue}
+            guard let leftView = (leftViews.filter { $0.titleTag == key}).first else {continue}
             
             for value in values {
                 //right point
-                guard let viewForValueName = (rightViews.filter {$0.titleTag == value.name}).first else {continue}
+                guard let rightView = (rightViews.filter {$0.titleTag == value.name}).first else {continue}
                 
                 // centerLeft & centerRight
                 let leftDrawPoint = leftItemNewLineDrawPoint[key] == nil ? 0 : leftItemNewLineDrawPoint[key]!
-                let leftY = viewForKey.frame.minY + leftDrawPoint
+                let leftY = leftView.frame.minY + leftDrawPoint
                 leftItemNewLineDrawPoint[key] = leftDrawPoint + pixelPerItem * CGFloat(value.volume)
-                let centerLeft = CGPoint(x: (viewForKey.frame.maxX), y: leftY)
+                let centerLeft = CGPoint(x: (leftView.frame.maxX), y: leftY)
                 
                 
                 let rightDrawPoint = rightItemNewLineDrawPoint[value.name] == nil ? 0 : rightItemNewLineDrawPoint[value.name]!
-                let rightY = viewForValueName.frame.minY + rightDrawPoint
+                let rightY = rightView.frame.minY + rightDrawPoint
                 rightItemNewLineDrawPoint[value.name] = rightDrawPoint + pixelPerItem * CGFloat(value.volume)
                 
-                let centerRight = CGPoint(x: (viewForValueName.frame.minX), y: rightY)
+                let centerRight = CGPoint(x: (rightView.frame.minX), y: rightY)
                  
                 drawLine(start: centerLeft, end: centerRight, lineWidth: pixelPerItem * CGFloat(value.volume))
             }
